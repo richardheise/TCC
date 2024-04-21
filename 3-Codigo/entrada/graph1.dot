@@ -1,3 +1,0 @@
-graph grafo1 {
-    a -- b -- c -- d -- a -- c
-}
