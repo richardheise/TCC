@@ -4,7 +4,9 @@
 #### Instituição: Universidade Federal do Paraná
 
 - [X] NETSHIELD+
-- [ ] LCC
+- [ ] LCC ? (Artigo ruim, talvez não valha a pena)
 - [ ] GreedyDrop
 - [ ] Walk6
 - [ ] NB
+
+Talvez usar esse https://www.sciencedirect.com/science/article/abs/pii/S0950705124002673

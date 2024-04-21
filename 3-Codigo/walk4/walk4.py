@@ -19,92 +19,85 @@ import networkx as nx
 import argparse
 
 # /***********************************************************************/
-# / Algoritmo NETSHIELD (DOI: 10.1109/TKDE.2015.2465378)
+# / Algoritmo COMPUTE-SCORE (https://doi.org/10.48550/arXiv.1711.00791)
 # /***********************************************************************/
 
-def net_shield(A, k, debug=False):
-    n = A.shape[0]
+def compute_score(G):
+    n = len(G.nodes())
+    deg = np.zeros(n)
+    codeg_sum = np.zeros(n)
+    score = np.zeros(n)
+    
+    # Calcula o grau de cada vértice
+    degrees = dict(G.degree())
+    for node, degree in degrees.items():
+        deg[node] = degree
+    
+    # Calcula a soma dos codeg
+    for node in G.nodes():
+        for neighbor in G.neighbors(node):
+            codeg_sum[neighbor] += deg[node] - 1
+    
+    # Calcula o score de cada vértice
+    for node in G.nodes():
+        score[node] = 2 * deg[node] ** 2 + 4 * codeg_sum[node] ** 2
+    
+    return score
 
-    if debug:
-        print("Número de vértices: ")
-        print(n)
-        print("Matriz de Adjacência:")
-        print(A)
+# /***********************************************************************/
+# / Algoritmo UPDATE-SCORE (https://doi.org/10.48550/arXiv.1711.00791)
+# /***********************************************************************/
+
+def update_score(G, score, node, visited):
+    deg = dict(G.degree())
+    codeg_sum = np.zeros(len(G.nodes()))
     
-    # Passo 1: Calculando o primeiro (maior) autovalor e autovetor correspondente
-    lambda_, u = np.linalg.eig(A)
-    max_lambda_idx = np.argmax(lambda_)
-    lambda_ = lambda_[max_lambda_idx].real
-    u = u[:, max_lambda_idx].real
-    if debug:
-        print("Primeiro autovalor:", lambda_)
-        print("Autovetor correspondente:")
-        print(u)
+    # Marca o nó como visitado
+    visited[node] = True
     
-    # Passo 2: Inicializando o conjunto S
+    # Reduz o grau e a soma dos cograus dos vizinhos do nó
+    for neighbor in G.neighbors(node):
+        if not visited[neighbor]:
+            deg[neighbor] -= 1
+            codeg_sum[neighbor] -= (deg[node] - 1)
+            for neighbor_of_neighbor in G.neighbors(neighbor):
+                codeg_sum[neighbor_of_neighbor] -= 1
+    
+    # Zera o grau e a soma dos cograus do nó
+    deg[node] = 0
+    codeg_sum[node] = 0
+    score[node] = 0
+
+    # Atualiza o score dos vizinhos do nó
+    for neighbor in G.neighbors(node):
+        if not visited[neighbor]:
+            score[neighbor] = 2 * deg[neighbor] ** 2 + 4 * codeg_sum[neighbor] ** 2
+            for neighbor_of_neighbor in G.neighbors(neighbor):
+                score[neighbor_of_neighbor] = 2 * deg[neighbor_of_neighbor] ** 2 + 4 * codeg_sum[neighbor_of_neighbor] ** 2
+    
+    return score
+
+
+# /***********************************************************************/
+# / Algoritmo Walk4 (https://doi.org/10.48550/arXiv.1711.00791)
+# /***********************************************************************/
+
+def Walk4(adj_matrix, k):
     S = set()
-    if debug:
-        print("Conjunto S inicializado:", S)
+    G = nx.Graph(adj_matrix)  # Criar um grafo a partir da matriz de adjacência
+    score = compute_score(G)
+    visited = {node: False for node in G.nodes()}  # Inicializa todos os nodos como não visitados
     
-    # Passo 3: Calculando shield-value para cada nodo
-    v = np.zeros(n)
-    for j in range(n):
-        v[j] = (2 * lambda_ - A[j, j]) * u[j] ** 2
-    if debug:
-        print("v(j) para cada j:")
-        print(v)
-    
-    # Passo 6-17: Selecionando os nós para S iterativamente
-    for iter in range(k):
-        B = A[:, list(S)] if S else np.zeros((n, 0))
-        b = np.dot(B, u[list(S)])
-        if debug:
-            print(f"Iteração {iter+1}: Matriz B:")
-            print(B)
-            print(f"Iteração {iter+1}: Vetor b:")
-            print(b)
+    while len(S) < k:
+        # Encontra o índice do nó com o maior score que ainda não está em S
+        max_score_node = max((node for node in G.nodes() if not visited[node]), key=lambda node: score[node])
         
-        score = np.zeros(n)
-        for j in range(n):
-            if j in S:
-                score[j] = -1
-            else:
-                score[j] = v[j] - 2 * b[j] * u[j]
-        if debug:
-            print(f"Iteração {iter+1}: Score de cada nó:")
-            print(score)
+        # Adiciona o nó selecionado ao conjunto S
+        S.add(max_score_node)
         
-        i = np.argmax(score)
-        S.add(i)
-        if debug:
-            print(f"Iteração {iter+1}: Adicionado nó {i} ao conjunto S")
-            print(f"Iteração {iter+1}: Conjunto S atualizado:", S)
-    
-    return S
-
-# /***********************************************************************/
-# / Algoritmo NETSHIELD+ (DOI: 10.1109/TKDE.2015.2465378)
-# /***********************************************************************/
-
-def netshield_plus(A, k, b, debug=False):
-    n = A.shape[0]
-    t = b * k // n
-
-    if (debug): 
-        print(f"Valor de t: {t}\nvalor de k: {k}\nvalor de n: {n}")
-
-    S = set()
-
-    for _ in range(t):
-        S_prime = net_shield(A, b, debug)
-        S.update(S_prime)
-        A = np.delete(A, list(S_prime), axis=0)
-        A = np.delete(A, list(S_prime), axis=1)
-
-    if k > t * b:
-        S_prime = net_shield(A, k - t * b, debug)
-        S.update(S_prime)
-
+        # Atualiza os escores com base no nó selecionado
+        score = update_score(G, score, max_score_node, visited)
+        
     return S
 
 # /***********************************************************************/
@@ -130,6 +123,7 @@ def eigendrop(G, S):
     
     # Calcula o eigendrop
     eigendrop_value = largest_eigenvalue_original - largest_eigenvalue_removed
+
     return eigendrop_value
 
 # /***********************************************************************/
@@ -155,16 +149,15 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="NetShield+ algorithm implementation")
     parser.add_argument("file_path", type=str, help="Path to the .dot file")
     parser.add_argument("k", type=int, help="Number of nodes to select")
-    parser.add_argument("b", type=int, help="Parameter b")
-    parser.add_argument("-d", "--debug", action="store_true", help="Enable debug prints")
     args = parser.parse_args()
 
     # Chamada do algoritmo
     A, node_map, G = read_dot_file(args.file_path)
-    nodes = netshield_plus(A, args.k, args.b, args.debug)
+    nodes = Walk4(A, args.k)
     selected_nodes = [list(node_map.keys())[list(node_map.values()).index(node)] for node in nodes]
     drop = eigendrop(G, selected_nodes)
 
     # Retorno da resposta
     print("Nodos a serem imunizados:", selected_nodes)
     print("Eigendrop: ", drop)
+
