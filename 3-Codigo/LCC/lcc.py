@@ -103,8 +103,6 @@ def immunization_algorithm(G, k):
         max_likelihood_node = lcc_nodes[max_likelihood_idx]
         partition = {node: 0 if fiedler_vec[list(G.nodes()).index(node)] < fiedler_vec[list(G.nodes()).index(max_likelihood_node)] else 1 for node in lcc_nodes}
 
-
-        
         # Passo 5: Imunizar os nós necessários e separar os dois grupos
         immunized, k = immunize_nodes(G, k, partition)
         immunized_nodes.extend(immunized)

@@ -48,16 +48,16 @@ def compute_score(G):
 # / Algoritmo UPDATE-SCORE (https://doi.org/10.48550/arXiv.1711.00791)
 # /***********************************************************************/
 
-def update_score(G, score, node, visited):
+def update_score(G, score, node, immunized):
     deg = dict(G.degree())
     codeg_sum = np.zeros(len(G.nodes()))
     
     # Marca o nó como visitado
-    visited[node] = True
+    immunized[node] = True
     
     # Reduz o grau e a soma dos cograus dos vizinhos do nó
     for neighbor in G.neighbors(node):
-        if not visited[neighbor]:
+        if not immunized[neighbor]:
             deg[neighbor] -= 1
             codeg_sum[neighbor] -= (deg[node] - 1)
             for neighbor_of_neighbor in G.neighbors(neighbor):
@@ -70,7 +70,7 @@ def update_score(G, score, node, visited):
 
     # Atualiza o score dos vizinhos do nó
     for neighbor in G.neighbors(node):
-        if not visited[neighbor]:
+        if not immunized[neighbor]:
             score[neighbor] = 2 * deg[neighbor] ** 2 + 4 * codeg_sum[neighbor] ** 2
             for neighbor_of_neighbor in G.neighbors(neighbor):
                 score[neighbor_of_neighbor] = 2 * deg[neighbor_of_neighbor] ** 2 + 4 * codeg_sum[neighbor_of_neighbor] ** 2
@@ -86,17 +86,17 @@ def Walk4(adj_matrix, k):
     S = set()
     G = nx.Graph(adj_matrix)  # Criar um grafo a partir da matriz de adjacência
     score = compute_score(G)
-    visited = {node: False for node in G.nodes()}  # Inicializa todos os nodos como não visitados
+    immunized = {node: False for node in G.nodes()}  # Inicializa todos os nodos como não visitados
     
     while len(S) < k:
         # Encontra o índice do nó com o maior score que ainda não está em S
-        max_score_node = max((node for node in G.nodes() if not visited[node]), key=lambda node: score[node])
+        max_score_node = max((node for node in G.nodes() if not immunized[node]), key=lambda node: score[node])
         
         # Adiciona o nó selecionado ao conjunto S
         S.add(max_score_node)
         
         # Atualiza os escores com base no nó selecionado
-        score = update_score(G, score, max_score_node, visited)
+        score = update_score(G, score, max_score_node, immunized)
         
     return S
 
