@@ -453,7 +453,7 @@ def x_nb_centrality(graph, approx=True, return_eigenvalue=False, tol=0):
 
         # Aggregate each node's neighbor's NB-centralities
         nb_cent = np.array([nb_cent[n] for n in graph])
-        adj = nx.to_scipy_sparse_matrix(graph)
+        adj = nx.to_scipy_sparse_array(graph)
         xnb_cent = adj.dot(nb_cent)**2 - adj.dot(nb_cent**2)
 
     else:
@@ -540,7 +540,7 @@ def x_centrality(graph, values):
 
     # Second aggregation: square of the sum minus sum of squares of
     # neighbors
-    adj = nx.to_scipy_sparse_matrix(graph)
+    adj = nx.to_scipy_sparse_array(graph)
     xnb_centrality = adj.dot(result)**2 - adj.dot(result**2)
 
     # Pack in a dict and return
@@ -924,7 +924,7 @@ def _immunize_netshield(graph, k):
         graph, label_attribute='original_label')
 
     # The variable names here match the notation used in [1].
-    A = nx.to_scipy_sparse_matrix(graph).astype('d')
+    A = nx.to_scipy_sparse_array(graph).astype('d')
     nodes = [n for n in graph]
     lambda_, u = scipy.sparse.linalg.eigs(A, k=1)
     lambda_ = lambda_.real

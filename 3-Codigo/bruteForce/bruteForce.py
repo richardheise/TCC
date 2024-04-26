@@ -15,6 +15,7 @@
 # Imports
 import numpy as np
 import scipy.sparse
+import scipy.linalg
 import networkx as nx
 import argparse
 import itertools
@@ -56,7 +57,7 @@ def read_dot_file(file_path):
     node_map = {node: i for i, node in enumerate(nodes)}
     adj_matrix = nx.adjacency_matrix(G).toarray()
 
-    return adj_matrix, node_map
+    return G, adj_matrix, node_map
 
 if __name__ == "__main__":
     # Parsing de argumentos da entrada padrão
@@ -67,8 +68,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Chamada do algoritmo
-    A, node_map = read_dot_file(args.file_path)
+    G, A, node_map = read_dot_file(args.file_path)
     immunized, best_drop = bruteForce(A, args.k, args.debug)
+
+    print(max(nx.adjacency_spectrum(G)))
+    print(max(nx.adjacency_spectrum(G.remove_nodes_from(immunized))))
 
     idxToName = [list(node_map.keys())[list(node_map.values()).index(i)] for i in immunized]
     eigendrop_rounded = round(best_drop.real, 8)

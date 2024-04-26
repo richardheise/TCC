@@ -68,11 +68,14 @@ if __name__ == "__main__":
 
     # Chamada do algoritmo
     G = read_dot_file(args.file_path)
-    selected_nodes = inbox.immunize(G, args.k, strategy='xnb')
+    selected_nodes, G_removed = inbox.immunize(G, args.k, strategy='xnb')
 
-    # drop = eigendrop(G, selected_nodes)
+    drop = max(nx.adjacency_spectrum(G)) - max(nx.adjacency_spectrum(G_removed))
+    
+    print(max(nx.adjacency_spectrum(G)))
+    print(max(nx.adjacency_spectrum(G_removed)))
 
     # Retorno da resposta
     print("Nodos a serem imunizados:", selected_nodes)
-    # print("Eigendrop: ", drop)
+    print("Eigendrop: ", drop-1)
 
