@@ -14,6 +14,9 @@
 
 # Imports
 import numpy as np
+import scipy.sparse
+import networkx as nx
+import argparse
 
 def simple_hash(value, alpha):
     return value % alpha
@@ -23,15 +26,14 @@ def SummaryGraph(A, alpha):
     C = np.zeros((alpha, alpha))
     
     for i in range(n):
-        for j in range(i, n):
+        hash_i = simple_hash(i, alpha)
+        for j in range(n):
             if A[i][j] == 1:
-                hash_i = simple_hash(i, alpha)
                 hash_j = simple_hash(j, alpha)
                 C[hash_i][hash_j] += 1
                 C[hash_j][hash_i] = C[hash_i][hash_j]
     
     return C
-
 
 def EstimateWalks(A, alpha, beta):
     n = len(A)
@@ -40,18 +42,20 @@ def EstimateWalks(A, alpha, beta):
     for i in range(beta):
         cw_prime_i = np.zeros(n)
         Ci = SummaryGraph(A, alpha)
+        print(Ci)
         
         for v in range(n):
-            dG_v = np.sum(A[v])  # Calcula o grau do vértice v em A(G)
-            C6 = np.sum(np.power(Ci[v], 6))  # Soma dos elementos da sexta potência de Ci[v]
-            C4 = np.sum(np.power(Ci[v], 4))  # Soma dos elementos da quarta potência de Ci[v]
-            C3 = np.sum(np.power(Ci[v], 3))  # Soma dos elementos da terceira potência de Ci[v]
+            dX_v = np.sum(A[v])  # Grau do vértice v no grafo resumido H
+            C3_sum = np.sum(np.power(Ci[v], 3))  # Soma dos elementos da terceira potência de Ci[v]
+            C2_sum = np.sum(np.power(Ci[v], 2))  # Soma dos elementos da segunda potência de Ci[v]
             
-            D6 = np.sum(np.power(np.sum(Ci, axis=1), 6))  # Soma dos graus elevados à sexta potência
-            D4 = np.sum(np.power(np.sum(Ci, axis=1), 4))  # Soma dos graus elevados à quarta potência
-            D3 = np.sum(np.power(np.sum(Ci, axis=1), 3))  # Soma dos graus elevados à terceira potência
+            C6_ii = np.power(C3_sum, 2)  # C6(i,i)
+            C4_ii = np.power(C2_sum, 2)  # C4(i,i)
             
-            cw_prime_i[v] = (6 * C6 * D6 - 6 * dG_v * C4 * D4 - 3 * np.power(C3 * dG_v / D3, 2) + 2 * np.power(dG_v, 3))
+            D6_i = np.sum(np.power(np.sum(Ci, axis=1), 6))  # Soma dos graus elevados à sexta potência
+            D4_i = np.sum(np.power(np.sum(Ci, axis=1), 4))  # Soma dos graus elevados à quarta potência
+            
+            cw_prime_i[v] = (6 * C6_ii * np.power(dX_v, 6) / D6_i - 6 * dX_v * C4_ii * np.power(dX_v, 4) / D4_i)
         
         cwMin_i = np.zeros(n)
         for j in range(n):
@@ -64,12 +68,14 @@ def EstimateWalks(A, alpha, beta):
     
     return cwMin
 
+
 def GreedyNodeImmunization(A, k, alpha, beta):
     n = len(A)
     S = set()
     W2_score = np.zeros(n)
     
     W = EstimateWalks(A, alpha, beta)
+    print(W)
     gamma = np.max(W)
     
     for i in range(n):
@@ -88,3 +94,65 @@ def GreedyNodeImmunization(A, k, alpha, beta):
         S.add(maxNode)
     
     return S
+
+# /***********************************************************************/
+# / Função que calcula eigendrop (autoqueda)
+# /***********************************************************************/
+
+def eigendrop(G, S):
+    # Matriz de adjacência do grafo original
+    A_original = nx.adjacency_matrix(G).toarray()
+
+    # Maior autovalor do grafo original
+    largest_eigenvalue_original = np.max(np.linalg.eigvals(A_original))
+    
+    # Criar um novo grafo removendo os vértices em S
+    G_removed = G.copy()
+    G_removed.remove_nodes_from(S)
+    
+    # Matriz de adjacência do novo grafo
+    A_removed = nx.adjacency_matrix(G_removed).toarray()
+
+    # Maior autovalor do novo grafo
+    largest_eigenvalue_removed = np.max(np.linalg.eigvals(A_removed))
+    
+    # Calcula o eigendrop
+    eigendrop_value = largest_eigenvalue_original - largest_eigenvalue_removed
+    return eigendrop_value
+
+# /***********************************************************************/
+# / Função para ler arquivo .dot e retornar a matriz de adjacência
+# /***********************************************************************/
+
+def read_dot_file(file_path):
+    print(f"Lendo arquivo .dot em {file_path}...")
+    G = nx.drawing.nx_pydot.read_dot(file_path)
+    nodes = list(G.nodes)
+    node_map = {node: i for i, node in enumerate(nodes)}
+    adj_matrix = nx.adjacency_matrix(G, nodelist=nodes).toarray()
+    
+    return adj_matrix, node_map, G
+
+# /***********************************************************************/
+# / Main
+# /***********************************************************************/
+
+if __name__ == "__main__":
+
+    # Parsing de argumentos da entrada padrão
+    parser = argparse.ArgumentParser(description="NetShield+ algorithm implementation")
+    parser.add_argument("file_path", type=str, help="Path to the .dot file")
+    parser.add_argument("k", type=int, help="Number of nodes to select")
+    parser.add_argument("alpha", type=int, help="Parameter alpha")
+    parser.add_argument("beta", type=int, help="Parameter beta")
+    args = parser.parse_args()
+
+    # Chamada do algoritmo
+    A, node_map, G = read_dot_file(args.file_path)
+    nodes = GreedyNodeImmunization(A, args.k, args.alpha, args.beta)
+    selected_nodes = [list(node_map.keys())[list(node_map.values()).index(node)] for node in nodes]
+    drop = eigendrop(G, selected_nodes)
+
+    # Retorno da resposta
+    print("Nodos a serem imunizados:", selected_nodes)
+    print("Eigendrop: ", drop)
