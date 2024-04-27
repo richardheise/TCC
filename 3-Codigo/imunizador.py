@@ -25,6 +25,76 @@ import time
 #-->
 
 # /***********************************************************************/
+# / Algoritmo COMPUTE-SCORE (https://doi.org/10.48550/arXiv.1711.00791)
+# /***********************************************************************/
+
+def compute_score(G, degrees, codeg_sum, score):
+    
+    # Calcula a soma dos codeg
+    for node in G.nodes():
+        for neighbor in G.neighbors(node):
+            codeg_sum[neighbor] += degrees[node] - 1
+    
+    # Calcula o score de cada vértice
+    for node in G.nodes():
+        score[node] = 2 * degrees[node] ** 2 + 4 * codeg_sum[node] ** 2
+
+    return score
+
+# /***********************************************************************/
+# / Algoritmo UPDATE-SCORE (https://doi.org/10.48550/arXiv.1711.00791)
+# /***********************************************************************/
+
+def update_score(G, node, degrees, codeg_sum, score):
+    
+    # Reduz o grau e a soma dos cograus dos vizinhos do nó
+    for neighbor in G.neighbors(node):
+        degrees[neighbor] -= 1
+        codeg_sum[neighbor] -= (degrees[node] - 1)
+        for neighbor_of_neighbor in G.neighbors(neighbor):
+            codeg_sum[neighbor_of_neighbor] -= 1
+
+    # Zera o grau e a soma dos cograus do nó
+    degrees[node] = 0
+    codeg_sum[node] = 0
+    score[node] = 0
+    neighbors = list(G.neighbors(node))
+    G.remove_node(node)
+
+    # Atualiza o score dos vizinhos do nó
+    for neighbor in neighbors:
+        score[neighbor] = 2 * degrees[neighbor] ** 2 + 4 * codeg_sum[neighbor] ** 2
+        for neighbor_of_neighbor in G.neighbors(neighbor):
+            score[neighbor_of_neighbor] = 2 * degrees[neighbor_of_neighbor] ** 2 + 4 * codeg_sum[neighbor_of_neighbor] ** 2
+
+    return score
+
+# /***********************************************************************/
+# / Algoritmo Walk4 (https://doi.org/10.48550/arXiv.1711.00791)
+# /***********************************************************************/
+
+def Walk4(G, k):
+    S = set()
+    degrees = dict(G.degree())
+    codeg_sum = {node: 0 for node in G.nodes()}
+    score = {node: 0 for node in G.nodes()}
+
+    G_local = G.copy()
+    score = compute_score(G_local, degrees, codeg_sum, score)
+    
+    while len(S) < k:
+        # Encontra o índice do nó com o maior score que ainda não está em S
+        max_score_node = max((node for node in G_local.nodes()), key=lambda node: score[node])
+
+        # Adiciona o nó selecionado ao conjunto S
+        S.add(max_score_node)
+
+        # Atualiza os escores com base no nó selecionado
+        score = update_score(G_local, max_score_node, degrees, codeg_sum, score)
+
+    return S, eigendrop(G, S)
+
+# /***********************************************************************/
 # / Algoritmo NETSHIELD (DOI: 10.1109/TKDE.2015.2465378)
 # /***********************************************************************/
 def net_shield(A, k):
@@ -45,7 +115,7 @@ def net_shield(A, k):
         v[j] = (2 * lambda_ - A[j, j]) * u[j] ** 2
     
     # Passo 6-17: Selecionando os nós para S iterativamente
-    for iter in range(k):
+    for _ in range(k):
         B = A[:, list(S)] if S else np.zeros((n, 0))
         b = np.dot(B, u[list(S)])
         
@@ -80,8 +150,9 @@ def netshield_plus(G, k, b):
     if k > t * b:
         S_prime = net_shield(A, k - t * b)
         S.update(S_prime)
-
-    return S, eigendrop(G, S)
+    
+    immunized = [list(G.nodes())[i] for i in S]
+    return immunized, eigendrop(G, immunized)
 
 # /***********************************************************************/
 # / Algoritmo Força-Bruta
@@ -150,8 +221,8 @@ def select_algorithm(G, id):
             print(f"Rodando Netshield+ em {len(G.nodes())} vértices e {len(G.edges)} arestas para {k} recursos...")
             to_immunize, eigendrop_final = netshield_plus(G, k, b)
         case 3:
-            print("Rodando Walk-4...")
-            # Chame a função correspondente ao algoritmo Walk-4 aqui
+            print(f"Rodando Walk-4 em {len(G.nodes())} vértices e {len(G.edges)} arestas para {k} recursos...")
+            to_immunize, eigendrop_final = Walk4(G, k)
         case 4:
             print("Rodando Walk-6...")
             # Chame a função correspondente ao algoritmo Walk-6 aqui
@@ -206,7 +277,11 @@ Escolha qual algoritmo deseja usar:
 
     max_eigendrop = round(max_eigendrop.real, 8)
 
+    G_final = G.copy()
+    G_final.remove_nodes_from(immunized)
     # Retorno da resposta
     print("Nodos a serem imunizados:", list(immunized))
-    print(f"Eigendrop: {max_eigendrop:.8f}")
+    print(f"Maior autovalor inicial: {round(max(nx.adjacency_spectrum(G)).real, 8):.8f}")
+    print(f"Maior autovalor final: {round(max(nx.adjacency_spectrum(G_final)).real, 8):.8f}")
+    print(f"Autoqueda: {max_eigendrop:.8f}")
 #<--
