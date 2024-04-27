@@ -7,4 +7,4 @@
 - [X] NETSHIELD+
 - [X] Walk-4
 - [ ] Walk-6
-- [ ] NB (Recebi o código, mas está estranho)
+- [X] NB

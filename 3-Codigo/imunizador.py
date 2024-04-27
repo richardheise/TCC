@@ -20,6 +20,7 @@ import networkx as nx
 import argparse
 import itertools
 import time
+import inbox
 
 ##################### ALGORITMOS #########################################
 #-->
@@ -27,7 +28,6 @@ import time
 # /***********************************************************************/
 # / Algoritmo COMPUTE-SCORE (https://doi.org/10.48550/arXiv.1711.00791)
 # /***********************************************************************/
-
 def compute_score(G, degrees, codeg_sum, score):
     
     # Calcula a soma dos codeg
@@ -44,7 +44,6 @@ def compute_score(G, degrees, codeg_sum, score):
 # /***********************************************************************/
 # / Algoritmo UPDATE-SCORE (https://doi.org/10.48550/arXiv.1711.00791)
 # /***********************************************************************/
-
 def update_score(G, node, degrees, codeg_sum, score):
     
     # Reduz o grau e a soma dos cograus dos vizinhos do nó
@@ -72,7 +71,6 @@ def update_score(G, node, degrees, codeg_sum, score):
 # /***********************************************************************/
 # / Algoritmo Walk4 (https://doi.org/10.48550/arXiv.1711.00791)
 # /***********************************************************************/
-
 def Walk4(G, k):
     S = set()
     degrees = dict(G.degree())
@@ -158,18 +156,15 @@ def netshield_plus(G, k, b):
 # / Algoritmo Força-Bruta
 # /***********************************************************************/
 def brute_force(G, k):
-    
     best_subset = None
     best_drop = float('-inf')
 
-    # Gerar todos os subconjuntos de tamanho k de vértices
-    subsets = itertools.combinations(G.nodes(), k)
-
-    # Calcula o eigendrop para todos os subconjuntos
-    eigendrops = [(subset, eigendrop(G, subset)) for subset in subsets]
-
-    # Encontra o subconjunto com o maior eigendrop
-    best_subset, best_drop = max(eigendrops, key=lambda x: x[1])
+    # Calcula o eigendrop para todos os subconjuntos de tamanho k
+    for subset in itertools.combinations(G.nodes(), k):
+        drop = eigendrop(G, subset)
+        if drop > best_drop:
+            best_drop = drop
+            best_subset = subset
 
     return best_subset, best_drop
 
@@ -215,20 +210,49 @@ def select_algorithm(G, id):
     match id:
         case 1:
             print(f"Rodando brute force em {len(G.nodes())} vértices e {len(G.edges)} arestas para {k} recursos...")
+            start_time = time.time()
+
             to_immunize, eigendrop_final = brute_force(G, k)
+
+            end_time = time.time()
+            exec_time = end_time - start_time
+            minutes, seconds = divmod(exec_time, 60)
+            print(f"Rodou em {int(minutes)}:{seconds:02} minuto(s).")
         case 2:
             b = int(input(f"Escolha o valor de b (inteiro) do NetShield+: \n"))
             print(f"Rodando Netshield+ em {len(G.nodes())} vértices e {len(G.edges)} arestas para {k} recursos...")
+            start_time = time.time()
+
             to_immunize, eigendrop_final = netshield_plus(G, k, b)
+
+            end_time = time.time()
+            exec_time = end_time - start_time
+            minutes, seconds = divmod(exec_time, 60)
+            print(f"Rodou em {int(minutes)}:{seconds:02} minuto(s).")
         case 3:
             print(f"Rodando Walk-4 em {len(G.nodes())} vértices e {len(G.edges)} arestas para {k} recursos...")
+            start_time = time.time()
+
             to_immunize, eigendrop_final = Walk4(G, k)
+
+            end_time = time.time()
+            exec_time = end_time - start_time
+            minutes, seconds = divmod(exec_time, 60)
+            print(f"Rodou em {int(minutes)}:{seconds:02} minuto(s).")
         case 4:
             print("Rodando Walk-6...")
             # Chame a função correspondente ao algoritmo Walk-6 aqui
         case 5:
-            print("Rodando NB-Centrality...")
-            # Chame a função correspondente ao algoritmo NB-Centrality aqui
+            print(f"Rodando NB-Centrality em {len(G.nodes())} vértices e {len(G.edges)} arestas para {k} recursos...")
+            start_time = time.time()
+
+            to_immunize, _ = inbox.immunize(G, k, strategy='xnb')
+
+            end_time = time.time()
+            eigendrop_final = eigendrop(G, to_immunize)
+            exec_time = end_time - start_time
+            minutes, seconds = divmod(exec_time, 60)
+            print(f"Rodou em {int(minutes)}:{seconds:02} minuto(s).")
         case _:
             print("Valor inválido")
 
@@ -242,6 +266,7 @@ def read_dot_file(file_path):
     G = nx.drawing.nx_pydot.read_dot(file_path)
 
     return G
+
 #<--
 
 ##################### MAIN #########################################
@@ -264,24 +289,18 @@ Escolha qual algoritmo deseja usar:
 4 --> Walk-6
 5 --> NB-Centrality
 """))
-    
-    start_time = time.time()
 
     immunized, max_eigendrop = select_algorithm(G, algorithm_id)
-
-    end_time = time.time()
-    exec_time = end_time - start_time
-    minutes, seconds = divmod(exec_time, 60)
-
-    print(f"Rodou em {int(minutes)}:{seconds:02} minuto(s).")
 
     max_eigendrop = round(max_eigendrop.real, 8)
 
     G_final = G.copy()
     G_final.remove_nodes_from(immunized)
+
     # Retorno da resposta
     print("Nodos a serem imunizados:", list(immunized))
     print(f"Maior autovalor inicial: {round(max(nx.adjacency_spectrum(G)).real, 8):.8f}")
     print(f"Maior autovalor final: {round(max(nx.adjacency_spectrum(G_final)).real, 8):.8f}")
     print(f"Autoqueda: {max_eigendrop:.8f}")
+
 #<--
