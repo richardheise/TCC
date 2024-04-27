@@ -99,10 +99,10 @@ def net_shield(A, k):
     n = A.shape[0]
     
     # Passo 1: Calculando o primeiro (maior) autovalor e autovetor correspondente
-    lambda_, u = np.linalg.eig(A)
-    max_lambda_idx = np.argmax(lambda_)
-    lambda_ = lambda_[max_lambda_idx].real
-    u = u[:, max_lambda_idx].real
+    engenvalues, eigenvectors = np.linalg.eig(A)
+    max_eigenvalue_idx = np.argmax(engenvalues)
+    engenvalues = engenvalues[max_eigenvalue_idx].real
+    eigenvectors = eigenvectors[:, max_eigenvalue_idx].real
     
     # Passo 2: Inicializando o conjunto S
     S = set()
@@ -110,19 +110,19 @@ def net_shield(A, k):
     # Passo 3: Calculando shield-value para cada nodo
     v = np.zeros(n)
     for j in range(n):
-        v[j] = (2 * lambda_ - A[j, j]) * u[j] ** 2
+        v[j] = (2 * engenvalues - A[j, j]) * eigenvectors[j] ** 2
     
     # Passo 6-17: Selecionando os nós para S iterativamente
     for _ in range(k):
         B = A[:, list(S)] if S else np.zeros((n, 0))
-        b = np.dot(B, u[list(S)])
+        b = np.dot(B, eigenvectors[list(S)])
         
         score = np.zeros(n)
         for j in range(n):
             if j in S:
                 score[j] = -1
             else:
-                score[j] = v[j] - 2 * b[j] * u[j]
+                score[j] = v[j] - 2 * b[j] * eigenvectors[j]
         
         i = np.argmax(score)
         S.add(i)
@@ -208,6 +208,7 @@ def select_algorithm(G, id):
     eigendrop_final = 0
     
     match id:
+        
         case 1:
             print(f"Rodando brute force em {len(G.nodes())} vértices e {len(G.edges)} arestas para {k} recursos...")
             start_time = time.time()
@@ -218,6 +219,7 @@ def select_algorithm(G, id):
             exec_time = end_time - start_time
             minutes, seconds = divmod(exec_time, 60)
             print(f"Rodou em {int(minutes)}:{seconds:02} minuto(s).")
+
         case 2:
             b = int(input(f"Escolha o valor de b (inteiro) do NetShield+: \n"))
             print(f"Rodando Netshield+ em {len(G.nodes())} vértices e {len(G.edges)} arestas para {k} recursos...")
@@ -229,6 +231,7 @@ def select_algorithm(G, id):
             exec_time = end_time - start_time
             minutes, seconds = divmod(exec_time, 60)
             print(f"Rodou em {int(minutes)}:{seconds:02} minuto(s).")
+
         case 3:
             print(f"Rodando Walk-4 em {len(G.nodes())} vértices e {len(G.edges)} arestas para {k} recursos...")
             start_time = time.time()
@@ -242,6 +245,7 @@ def select_algorithm(G, id):
         case 4:
             print("Rodando Walk-6...")
             # Chame a função correspondente ao algoritmo Walk-6 aqui
+
         case 5:
             print(f"Rodando NB-Centrality em {len(G.nodes())} vértices e {len(G.edges)} arestas para {k} recursos...")
             start_time = time.time()
@@ -253,6 +257,7 @@ def select_algorithm(G, id):
             exec_time = end_time - start_time
             minutes, seconds = divmod(exec_time, 60)
             print(f"Rodou em {int(minutes)}:{seconds:02} minuto(s).")
+
         case _:
             print("Valor inválido")
 
