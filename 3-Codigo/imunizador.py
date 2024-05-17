@@ -30,6 +30,8 @@ import inbox
 # /***********************************************************************/
 def compute_score(G, degrees, codeg_sum, score):
     
+    eigenvalue = np.floor(max(nx.adjacency_spectrum(G).real))
+
     # Calcula a soma dos codeg
     for node in G.nodes():
         for neighbor in G.neighbors(node):
@@ -37,7 +39,9 @@ def compute_score(G, degrees, codeg_sum, score):
     
     # Calcula o score de cada vértice
     for node in G.nodes():
-        score[node] = 2 * degrees[node] ** 2 + 4 * codeg_sum[node] ** 2
+        score[node] = 2 * degrees[node] ** 2 + eigenvalue * codeg_sum[node] ** 2
+
+    print("scores: ", score)
 
     return score
 
@@ -46,6 +50,8 @@ def compute_score(G, degrees, codeg_sum, score):
 # /***********************************************************************/
 def update_score(G, node, degrees, codeg_sum, score):
     
+    eigenvalue = np.floor(max(nx.adjacency_spectrum(G).real))
+
     # Reduz o grau e a soma dos cograus dos vizinhos do nó
     for neighbor in G.neighbors(node):
         degrees[neighbor] -= 1
@@ -62,10 +68,11 @@ def update_score(G, node, degrees, codeg_sum, score):
 
     # Atualiza o score dos vizinhos do nó
     for neighbor in neighbors:
-        score[neighbor] = 2 * degrees[neighbor] ** 2 + 4 * codeg_sum[neighbor] ** 2
+        score[neighbor] = 2 * degrees[neighbor] ** 2 + eigenvalue * codeg_sum[neighbor] ** 2
         for neighbor_of_neighbor in G.neighbors(neighbor):
-            score[neighbor_of_neighbor] = 2 * degrees[neighbor_of_neighbor] ** 2 + 4 * codeg_sum[neighbor_of_neighbor] ** 2
+            score[neighbor_of_neighbor] = 2 * degrees[neighbor_of_neighbor] ** 2 + eigenvalue * codeg_sum[neighbor_of_neighbor] ** 2
 
+    print("scores atualizados: ", score)
     return score
 
 # /***********************************************************************/
@@ -99,9 +106,9 @@ def net_shield(A, k):
     n = A.shape[0]
     
     # Passo 1: Calculando o primeiro (maior) autovalor e autovetor correspondente
-    engenvalues, eigenvectors = np.linalg.eig(A)
-    max_eigenvalue_idx = np.argmax(engenvalues)
-    engenvalues = engenvalues[max_eigenvalue_idx].real
+    eigenvalues, eigenvectors = np.linalg.eig(A)
+    max_eigenvalue_idx = np.argmax(eigenvalues)
+    eigenvalues = eigenvalues[max_eigenvalue_idx].real
     eigenvectors = eigenvectors[:, max_eigenvalue_idx].real
     
     # Passo 2: Inicializando o conjunto S
@@ -110,7 +117,7 @@ def net_shield(A, k):
     # Passo 3: Calculando shield-value para cada nodo
     v = np.zeros(n)
     for j in range(n):
-        v[j] = (2 * engenvalues - A[j, j]) * eigenvectors[j] ** 2
+        v[j] = (2 * eigenvalues - A[j, j]) * eigenvectors[j] ** 2
     
     # Passo 6-17: Selecionando os nós para S iterativamente
     for _ in range(k):
@@ -211,11 +218,11 @@ def select_algorithm(G, id):
         
         case 1:
             print(f"Rodando brute force em {len(G.nodes())} vértices e {len(G.edges)} arestas para {k} recursos...")
-            start_time = time.time()
+            start_time = time.perf_counter()
 
             to_immunize, eigendrop_final = brute_force(G, k)
 
-            end_time = time.time()
+            end_time = time.perf_counter()
             exec_time = end_time - start_time
             minutes, seconds = divmod(exec_time, 60)
             print(f"Rodou em {int(minutes)}:{seconds:02} minuto(s).")
@@ -223,22 +230,22 @@ def select_algorithm(G, id):
         case 2:
             b = int(input(f"Escolha o valor de b (inteiro) do NetShield+: \n"))
             print(f"Rodando Netshield+ em {len(G.nodes())} vértices e {len(G.edges)} arestas para {k} recursos...")
-            start_time = time.time()
+            start_time = time.perf_counter()
 
             to_immunize, eigendrop_final = netshield_plus(G, k, b)
 
-            end_time = time.time()
+            end_time = time.perf_counter()
             exec_time = end_time - start_time
             minutes, seconds = divmod(exec_time, 60)
             print(f"Rodou em {int(minutes)}:{seconds:02} minuto(s).")
 
         case 3:
             print(f"Rodando Walk-4 em {len(G.nodes())} vértices e {len(G.edges)} arestas para {k} recursos...")
-            start_time = time.time()
+            start_time = time.perf_counter()
 
             to_immunize, eigendrop_final = Walk4(G, k)
 
-            end_time = time.time()
+            end_time = time.perf_counter()
             exec_time = end_time - start_time
             minutes, seconds = divmod(exec_time, 60)
             print(f"Rodou em {int(minutes)}:{seconds:02} minuto(s).")
@@ -248,11 +255,11 @@ def select_algorithm(G, id):
 
         case 5:
             print(f"Rodando NB-Centrality em {len(G.nodes())} vértices e {len(G.edges)} arestas para {k} recursos...")
-            start_time = time.time()
+            start_time = time.perf_counter()
 
             to_immunize, _ = inbox.immunize(G, k, strategy='xnb')
 
-            end_time = time.time()
+            end_time = time.perf_counter()
             eigendrop_final = eigendrop(G, to_immunize)
             exec_time = end_time - start_time
             minutes, seconds = divmod(exec_time, 60)
