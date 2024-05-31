@@ -30,8 +30,6 @@ import inbox
 # /***********************************************************************/
 def compute_score(G, degrees, codeg_sum, score):
     
-    eigenvalue = np.floor(max(nx.adjacency_spectrum(G).real))
-
     # Calcula a soma dos codeg
     for node in G.nodes():
         for neighbor in G.neighbors(node):
@@ -39,9 +37,7 @@ def compute_score(G, degrees, codeg_sum, score):
     
     # Calcula o score de cada vértice
     for node in G.nodes():
-        score[node] = 2 * degrees[node] ** 2 + eigenvalue * codeg_sum[node] ** 2
-
-    print("scores: ", score)
+        score[node] = 2 * degrees[node] ** 2 + 4 * codeg_sum[node] ** 2
 
     return score
 
@@ -50,8 +46,6 @@ def compute_score(G, degrees, codeg_sum, score):
 # /***********************************************************************/
 def update_score(G, node, degrees, codeg_sum, score):
     
-    eigenvalue = np.floor(max(nx.adjacency_spectrum(G).real))
-
     # Reduz o grau e a soma dos cograus dos vizinhos do nó
     for neighbor in G.neighbors(node):
         degrees[neighbor] -= 1
@@ -68,11 +62,10 @@ def update_score(G, node, degrees, codeg_sum, score):
 
     # Atualiza o score dos vizinhos do nó
     for neighbor in neighbors:
-        score[neighbor] = 2 * degrees[neighbor] ** 2 + eigenvalue * codeg_sum[neighbor] ** 2
+        score[neighbor] = 2 * degrees[neighbor] ** 2 + 4 * codeg_sum[neighbor] ** 2
         for neighbor_of_neighbor in G.neighbors(neighbor):
-            score[neighbor_of_neighbor] = 2 * degrees[neighbor_of_neighbor] ** 2 + eigenvalue * codeg_sum[neighbor_of_neighbor] ** 2
+            score[neighbor_of_neighbor] = 2 * degrees[neighbor_of_neighbor] ** 2 + 4 * codeg_sum[neighbor_of_neighbor] ** 2
 
-    print("scores atualizados: ", score)
     return score
 
 # /***********************************************************************/
@@ -96,6 +89,92 @@ def Walk4(G, k):
 
         # Atualiza os escores com base no nó selecionado
         score = update_score(G_local, max_score_node, degrees, codeg_sum, score)
+
+    return S, eigendrop(G, S)
+
+# /***********************************************************************/
+# / Algoritmo COMPUTE-SCORE-Melhorado
+# /***********************************************************************/
+def compute_score_enhanced(G, degrees, codeg_sum, score):
+    
+    # Calcula a soma dos codeg
+    for node in G.nodes():
+        for neighbor in G.neighbors(node):
+            codeg_sum[neighbor] += degrees[node] - 1
+    
+    print("Cograus: ", codeg_sum)
+
+    # Calcula o score de cada vértice
+    for node in G.nodes():
+        if degrees[node] == 1:
+            score[node] = 2 * degrees[node] ** 2 + 2 * codeg_sum[node] ** 2
+        else:
+            score[node] = 2 * degrees[node] ** 2 + 4 * codeg_sum[node] ** 2
+
+    print("Score: ", score)
+    print("\n\n")
+    return score
+
+# /***********************************************************************/
+# / Algoritmo UPDATE-SCORE-Melhorado
+# /***********************************************************************/
+def update_score_enhanced(G, node, degrees, codeg_sum, score):
+    
+    # Reduz o grau e a soma dos cograus dos vizinhos do nó
+    for neighbor in G.neighbors(node):
+        degrees[neighbor] -= 1
+        codeg_sum[neighbor] -= (degrees[node] - 1)
+        for neighbor_of_neighbor in G.neighbors(neighbor):
+            codeg_sum[neighbor_of_neighbor] -= 1
+
+    # Zera o grau e a soma dos cograus do nó
+    degrees[node] = 0
+    codeg_sum[node] = 0
+    score[node] = 0
+    neighbors = list(G.neighbors(node))
+    G.remove_node(node)
+
+    print("Cograus atualizados: ", codeg_sum)
+
+    # Atualiza o score dos vizinhos do nó
+    for neighbor in neighbors:
+        if codeg_sum[neighbor] == 1:
+            score[neighbor] = 2 * degrees[neighbor] ** 2 + 2 * codeg_sum[neighbor] ** 2
+        else:
+            score[neighbor] = 2 * degrees[neighbor] ** 2 + 4 * codeg_sum[neighbor] ** 2
+
+        for neighbor_of_neighbor in G.neighbors(neighbor):
+            if codeg_sum[neighbor_of_neighbor] == 1:
+                score[neighbor_of_neighbor] = 2 * degrees[neighbor_of_neighbor] ** 2 + 2 * codeg_sum[neighbor_of_neighbor] ** 2
+            else:
+                score[neighbor_of_neighbor] = 2 * degrees[neighbor_of_neighbor] ** 2 + 4 * codeg_sum[neighbor_of_neighbor] ** 2
+
+    print("Score atualizado: ", score)
+    print("\n\n")
+
+    return score
+
+# /***********************************************************************/
+# / Algoritmo Walk4-Melhorado
+# /***********************************************************************/
+def Walk4_enhanced(G, k):
+    S = set()
+    degrees = dict(G.degree())
+    codeg_sum = {node: 0 for node in G.nodes()}
+    score = {node: 0 for node in G.nodes()}
+
+    G_local = G.copy()
+    score = compute_score_enhanced(G_local, degrees, codeg_sum, score)
+    
+    while len(S) < k:
+        # Encontra o índice do nó com o maior score que ainda não está em S
+        max_score_node = max((node for node in G_local.nodes()), key=lambda node: score[node])
+
+        # Adiciona o nó selecionado ao conjunto S
+        S.add(max_score_node)
+
+        # Atualiza os escores com base no nó selecionado
+        score = update_score_enhanced(G_local, max_score_node, degrees, codeg_sum, score)
 
     return S, eigendrop(G, S)
 
@@ -249,9 +328,17 @@ def select_algorithm(G, id):
             exec_time = end_time - start_time
             minutes, seconds = divmod(exec_time, 60)
             print(f"Rodou em {int(minutes)}:{seconds:02} minuto(s).")
+
         case 4:
-            print("Rodando Walk-6...")
-            # Chame a função correspondente ao algoritmo Walk-6 aqui
+            print("Rodando Walk-4 melhorado...")
+            start_time = time.perf_counter()
+
+            to_immunize, eigendrop_final = Walk4_enhanced(G, k)
+
+            end_time = time.perf_counter()
+            exec_time = end_time - start_time
+            minutes, seconds = divmod(exec_time, 60)
+            print(f"Rodou em {int(minutes)}:{seconds:02} minuto(s).")
 
         case 5:
             print(f"Rodando NB-Centrality em {len(G.nodes())} vértices e {len(G.edges)} arestas para {k} recursos...")
@@ -298,7 +385,7 @@ Escolha qual algoritmo deseja usar:
 1 --> BruteForce
 2 --> Netshield+
 3 --> Walk-4
-4 --> Walk-6
+4 --> Walk-4-Enhanced
 5 --> NB-Centrality
 """))
 
