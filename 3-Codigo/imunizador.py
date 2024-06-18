@@ -93,7 +93,7 @@ def Walk4(G, k):
     return S, eigendrop(G, S)
 
 # /***********************************************************************/
-# / Algoritmo COMPUTE-SCORE-Melhorado
+# / Algoritmo COMPUTE-SCORE-Aprimorado
 # /***********************************************************************/
 def compute_score_enhanced(G, degrees, codeg_sum, score):
     
@@ -116,7 +116,7 @@ def compute_score_enhanced(G, degrees, codeg_sum, score):
     return score
 
 # /***********************************************************************/
-# / Algoritmo UPDATE-SCORE-Melhorado
+# / Algoritmo UPDATE-SCORE-Aprimorado
 # /***********************************************************************/
 def update_score_enhanced(G, node, degrees, codeg_sum, score):
     
@@ -144,7 +144,7 @@ def update_score_enhanced(G, node, degrees, codeg_sum, score):
             score[neighbor] = 2 * degrees[neighbor] ** 2 + 4 * codeg_sum[neighbor] ** 2
 
         for neighbor_of_neighbor in G.neighbors(neighbor):
-            if codeg_sum[neighbor_of_neighbor] == 1:
+            if degrees[neighbor_of_neighbor] == 1:
                 score[neighbor_of_neighbor] = 2 * degrees[neighbor_of_neighbor] ** 2 + 2 * codeg_sum[neighbor_of_neighbor] ** 2
             else:
                 score[neighbor_of_neighbor] = 2 * degrees[neighbor_of_neighbor] ** 2 + 4 * codeg_sum[neighbor_of_neighbor] ** 2
@@ -155,7 +155,7 @@ def update_score_enhanced(G, node, degrees, codeg_sum, score):
     return score
 
 # /***********************************************************************/
-# / Algoritmo Walk4-Melhorado
+# / Algoritmo Walk4-Aprimorado
 # /***********************************************************************/
 def Walk4_enhanced(G, k):
     S = set()
@@ -330,7 +330,7 @@ def select_algorithm(G, id):
             print(f"Rodou em {int(minutes)}:{seconds:02} minuto(s).")
 
         case 4:
-            print("Rodando Walk-4 melhorado...")
+            print("Rodando Walk-4 Aprimorado...")
             start_time = time.perf_counter()
 
             to_immunize, eigendrop_final = Walk4_enhanced(G, k)
