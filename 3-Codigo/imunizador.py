@@ -13,6 +13,7 @@
 
 
 # Imports
+from collections import defaultdict
 import numpy as np
 import scipy.sparse
 import scipy.linalg
@@ -46,21 +47,21 @@ def compute_score(G, degrees, codeg_sum, score):
 # /***********************************************************************/
 def update_score(G, node, degrees, codeg_sum, score):
     
-    # Reduz o grau e a soma dos cograus dos vizinhos do nó
+    # Reduz o grau e a soma dos cograus dos vizinhos do nodo
     for neighbor in G.neighbors(node):
         degrees[neighbor] -= 1
         codeg_sum[neighbor] -= (degrees[node] - 1)
         for neighbor_of_neighbor in G.neighbors(neighbor):
             codeg_sum[neighbor_of_neighbor] -= 1
 
-    # Zera o grau e a soma dos cograus do nó
+    # Zera o grau e a soma dos cograus do nodo
     degrees[node] = 0
     codeg_sum[node] = 0
     score[node] = 0
     neighbors = list(G.neighbors(node))
     G.remove_node(node)
 
-    # Atualiza o score dos vizinhos do nó
+    # Atualiza o score dos vizinhos do nodo
     for neighbor in neighbors:
         score[neighbor] = 2 * degrees[neighbor] ** 2 + 4 * codeg_sum[neighbor] ** 2
         for neighbor_of_neighbor in G.neighbors(neighbor):
@@ -72,6 +73,10 @@ def update_score(G, node, degrees, codeg_sum, score):
 # / Algoritmo Walk4 (https://doi.org/10.48550/arXiv.1711.00791)
 # /***********************************************************************/
 def Walk4(G, k):
+
+    print(f"Rodando Walk-4 em {len(G.nodes())} vértices e {len(G.edges)} arestas para {k} recursos...")
+    start_time = time.perf_counter()
+
     S = set()
     degrees = dict(G.degree())
     codeg_sum = {node: 0 for node in G.nodes()}
@@ -81,14 +86,19 @@ def Walk4(G, k):
     score = compute_score(G_local, degrees, codeg_sum, score)
     
     while len(S) < k:
-        # Encontra o índice do nó com o maior score que ainda não está em S
+        # Encontra o índice do nodo com o maior score que ainda não está em S
         max_score_node = max((node for node in G_local.nodes()), key=lambda node: score[node])
 
-        # Adiciona o nó selecionado ao conjunto S
+        # Adiciona o nodo selecionado ao conjunto S
         S.add(max_score_node)
 
-        # Atualiza os escores com base no nó selecionado
+        # Atualiza os escores com base no nodo selecionado
         score = update_score(G_local, max_score_node, degrees, codeg_sum, score)
+    
+    end_time = time.perf_counter()
+    exec_time = end_time - start_time
+    minutes, seconds = divmod(exec_time, 60)
+    print(f"Rodou em {int(minutes)}:{seconds:02} minuto(s).")
 
     return S, eigendrop(G, S)
 
@@ -102,79 +112,104 @@ def compute_score_enhanced(G, degrees, codeg_sum, score):
         for neighbor in G.neighbors(node):
             codeg_sum[neighbor] += degrees[node] - 1
     
-    print("Cograus: ", codeg_sum)
-
     # Calcula o score de cada vértice
     for node in G.nodes():
-        if degrees[node] == 1:
-            score[node] = 2 * degrees[node] ** 2 + 2 * codeg_sum[node] ** 2
-        else:
+        if degrees[node] != 1:
             score[node] = 2 * degrees[node] ** 2 + 4 * codeg_sum[node] ** 2
 
-    print("Score: ", score)
-    print("\n\n")
     return score
 
 # /***********************************************************************/
 # / Algoritmo UPDATE-SCORE-Aprimorado
 # /***********************************************************************/
-def update_score_enhanced(G, node, degrees, codeg_sum, score):
+def update_score_enhanced(G, node, degrees, codeg_sum, score, common_neighbors):
     
-    # Reduz o grau e a soma dos cograus dos vizinhos do nó
+    # Reduz o grau e a soma dos cograus dos vizinhos do nodo
     for neighbor in G.neighbors(node):
         degrees[neighbor] -= 1
         codeg_sum[neighbor] -= (degrees[node] - 1)
         for neighbor_of_neighbor in G.neighbors(neighbor):
             codeg_sum[neighbor_of_neighbor] -= 1
 
-    # Zera o grau e a soma dos cograus do nó
+    # Zera o grau e a soma dos cograus do nodo
     degrees[node] = 0
     codeg_sum[node] = 0
     score[node] = 0
     neighbors = list(G.neighbors(node))
     G.remove_node(node)
 
-    print("Cograus atualizados: ", codeg_sum)
-
-    # Atualiza o score dos vizinhos do nó
+    # Atualiza o score dos vizinhos do nodo
     for neighbor in neighbors:
-        if codeg_sum[neighbor] == 1:
+        if (common_neighbors[(node, neighbor)] < 2):
             score[neighbor] = 2 * degrees[neighbor] ** 2 + 2 * codeg_sum[neighbor] ** 2
         else:
             score[neighbor] = 2 * degrees[neighbor] ** 2 + 4 * codeg_sum[neighbor] ** 2
-
+            
         for neighbor_of_neighbor in G.neighbors(neighbor):
-            if degrees[neighbor_of_neighbor] == 1:
+            if (common_neighbors[(node, neighbor_of_neighbor)] < 2):
                 score[neighbor_of_neighbor] = 2 * degrees[neighbor_of_neighbor] ** 2 + 2 * codeg_sum[neighbor_of_neighbor] ** 2
             else:
                 score[neighbor_of_neighbor] = 2 * degrees[neighbor_of_neighbor] ** 2 + 4 * codeg_sum[neighbor_of_neighbor] ** 2
 
-    print("Score atualizado: ", score)
-    print("\n\n")
-
+    count_common_neighbors(G, common_neighbors)
     return score
+
+# /***********************************************************************/
+# / Algoritmo Conta-Vizinhos
+# /***********************************************************************/
+def count_common_neighbors(G, common_neighbors):
+    nodes = list(G.nodes())
+    index_to_node = {i: node for i, node in enumerate(nodes)}
+    
+    # Crie a matriz de adjacência esparsa
+    adj = nx.to_scipy_sparse_array(G)
+    
+    # Calcule o produto da matriz de adjacência com ela mesma
+    common_matrix = adj @ adj
+    
+    # Extraia os índices e valores não zero diretamente da matriz CSR
+    rows, cols = common_matrix.nonzero()
+    values = common_matrix.data
+    
+    # Mapeie a matriz para o dicionário de vizinhos em comum
+    for i, j, value in zip(rows, cols, values):
+        if i != j and value > 0:
+            node_i, node_j = index_to_node[i], index_to_node[j]
+            common_neighbors[(node_i, node_j)] = value
 
 # /***********************************************************************/
 # / Algoritmo Walk4-Aprimorado
 # /***********************************************************************/
 def Walk4_enhanced(G, k):
+
+    print("Rodando Walk-4 Aprimorado...")
+    start_time = time.perf_counter()
+
     S = set()
+    score = {node: 0 for node in G.nodes()}
     degrees = dict(G.degree())
     codeg_sum = {node: 0 for node in G.nodes()}
-    score = {node: 0 for node in G.nodes()}
+    common_neighbors = defaultdict(int)
+
+    count_common_neighbors(G, common_neighbors)
 
     G_local = G.copy()
     score = compute_score_enhanced(G_local, degrees, codeg_sum, score)
     
     while len(S) < k:
-        # Encontra o índice do nó com o maior score que ainda não está em S
+        # Encontra o índice do nodo com o maior score que ainda não está em S
         max_score_node = max((node for node in G_local.nodes()), key=lambda node: score[node])
 
-        # Adiciona o nó selecionado ao conjunto S
+        # Adiciona o nodo selecionado ao conjunto S
         S.add(max_score_node)
 
-        # Atualiza os escores com base no nó selecionado
-        score = update_score_enhanced(G_local, max_score_node, degrees, codeg_sum, score)
+        # Atualiza os escores com base no nodo selecionado
+        score = update_score_enhanced(G_local, max_score_node, degrees, codeg_sum, score, common_neighbors)
+
+    end_time = time.perf_counter()
+    exec_time = end_time - start_time
+    minutes, seconds = divmod(exec_time, 60)
+    print(f"Rodou em {int(minutes)}:{seconds:02} minuto(s).")
 
     return S, eigendrop(G, S)
 
@@ -219,6 +254,10 @@ def net_shield(A, k):
 # / Algoritmo NETSHIELD+ (DOI: 10.1109/TKDE.2015.2465378)
 # /***********************************************************************/
 def netshield_plus(G, k, b):
+
+    print(f"Rodando Netshield+ em {len(G.nodes())} vértices e {len(G.edges)} arestas para {k} recursos...")
+    start_time = time.perf_counter()
+
     A = nx.adjacency_matrix(G).toarray()
     n = A.shape[0]
     t = b * k // n
@@ -236,12 +275,22 @@ def netshield_plus(G, k, b):
         S.update(S_prime)
     
     immunized = [list(G.nodes())[i] for i in S]
+
+    end_time = time.perf_counter()
+    exec_time = end_time - start_time
+    minutes, seconds = divmod(exec_time, 60)
+    print(f"Rodou em {int(minutes)}:{seconds:02} minuto(s).")
+    
     return immunized, eigendrop(G, immunized)
 
 # /***********************************************************************/
 # / Algoritmo Força-Bruta
 # /***********************************************************************/
 def brute_force(G, k):
+
+    print(f"Rodando brute force em {len(G.nodes())} vértices e {len(G.edges)} arestas para {k} recursos...")
+    start_time = time.perf_counter()
+     
     best_subset = None
     best_drop = float('-inf')
 
@@ -251,6 +300,11 @@ def brute_force(G, k):
         if drop > best_drop:
             best_drop = drop
             best_subset = subset
+
+    end_time = time.perf_counter()
+    exec_time = end_time - start_time
+    minutes, seconds = divmod(exec_time, 60)
+    print(f"Rodou em {int(minutes)}:{seconds:02} minuto(s).")
 
     return best_subset, best_drop
 
@@ -286,7 +340,7 @@ def select_algorithm(G, id):
 
     k = int(input(f"Quantos recursos temos?: \n"))
 
-    if (k >= len(G.nodes())):
+    if (k >= len(G.nodes())-1):
         print("Temos mais recursos que nodos, logo, imunize todo mundo!")
         return set(G.nodes()), max(nx.adjacency_spectrum(G))
     
@@ -296,49 +350,17 @@ def select_algorithm(G, id):
     match id:
         
         case 1:
-            print(f"Rodando brute force em {len(G.nodes())} vértices e {len(G.edges)} arestas para {k} recursos...")
-            start_time = time.perf_counter()
-
             to_immunize, eigendrop_final = brute_force(G, k)
-
-            end_time = time.perf_counter()
-            exec_time = end_time - start_time
-            minutes, seconds = divmod(exec_time, 60)
-            print(f"Rodou em {int(minutes)}:{seconds:02} minuto(s).")
 
         case 2:
             b = int(input(f"Escolha o valor de b (inteiro) do NetShield+: \n"))
-            print(f"Rodando Netshield+ em {len(G.nodes())} vértices e {len(G.edges)} arestas para {k} recursos...")
-            start_time = time.perf_counter()
-
             to_immunize, eigendrop_final = netshield_plus(G, k, b)
 
-            end_time = time.perf_counter()
-            exec_time = end_time - start_time
-            minutes, seconds = divmod(exec_time, 60)
-            print(f"Rodou em {int(minutes)}:{seconds:02} minuto(s).")
-
         case 3:
-            print(f"Rodando Walk-4 em {len(G.nodes())} vértices e {len(G.edges)} arestas para {k} recursos...")
-            start_time = time.perf_counter()
-
             to_immunize, eigendrop_final = Walk4(G, k)
 
-            end_time = time.perf_counter()
-            exec_time = end_time - start_time
-            minutes, seconds = divmod(exec_time, 60)
-            print(f"Rodou em {int(minutes)}:{seconds:02} minuto(s).")
-
         case 4:
-            print("Rodando Walk-4 Aprimorado...")
-            start_time = time.perf_counter()
-
             to_immunize, eigendrop_final = Walk4_enhanced(G, k)
-
-            end_time = time.perf_counter()
-            exec_time = end_time - start_time
-            minutes, seconds = divmod(exec_time, 60)
-            print(f"Rodou em {int(minutes)}:{seconds:02} minuto(s).")
 
         case 5:
             print(f"Rodando NB-Centrality em {len(G.nodes())} vértices e {len(G.edges)} arestas para {k} recursos...")
@@ -347,10 +369,11 @@ def select_algorithm(G, id):
             to_immunize, _ = inbox.immunize(G, k, strategy='xnb')
 
             end_time = time.perf_counter()
-            eigendrop_final = eigendrop(G, to_immunize)
             exec_time = end_time - start_time
             minutes, seconds = divmod(exec_time, 60)
             print(f"Rodou em {int(minutes)}:{seconds:02} minuto(s).")
+
+            eigendrop_final = eigendrop(G, to_immunize)
 
         case _:
             print("Valor inválido")
@@ -364,7 +387,7 @@ def read_dot_file(file_path):
     print(f"Lendo arquivo .dot em {file_path}...")
     G = nx.drawing.nx_pydot.read_dot(file_path)
 
-    return G
+    return nx.Graph(G)
 
 #<--
 

@@ -1,0 +1,5 @@
+networkx
+scipy
+pqdict
+numpy
+pydot
