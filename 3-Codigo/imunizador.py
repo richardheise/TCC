@@ -122,7 +122,7 @@ def compute_score_enhanced(G, degrees, codeg_sum, score):
 # /***********************************************************************/
 # / Algoritmo UPDATE-SCORE-Aprimorado
 # /***********************************************************************/
-def update_score_enhanced(G, node, degrees, codeg_sum, score, common_neighbors):
+def update_score_enhanced(G, node, degrees, codeg_sum, score):
     
     # Reduz o grau e a soma dos cograus dos vizinhos do nodo
     for neighbor in G.neighbors(node):
@@ -140,42 +140,18 @@ def update_score_enhanced(G, node, degrees, codeg_sum, score, common_neighbors):
 
     # Atualiza o score dos vizinhos do nodo
     for neighbor in neighbors:
-        if (common_neighbors[(node, neighbor)] < 2):
-            score[neighbor] = 2 * degrees[neighbor] ** 2 + 2 * codeg_sum[neighbor] ** 2
+        if (degrees[neighbor] == 1):
+            score[neighbor] = 0
         else:
             score[neighbor] = 2 * degrees[neighbor] ** 2 + 4 * codeg_sum[neighbor] ** 2
-            
+
         for neighbor_of_neighbor in G.neighbors(neighbor):
-            if (common_neighbors[(node, neighbor_of_neighbor)] < 2):
-                score[neighbor_of_neighbor] = 2 * degrees[neighbor_of_neighbor] ** 2 + 2 * codeg_sum[neighbor_of_neighbor] ** 2
+            if (degrees[neighbor_of_neighbor] == 1):
+                score[neighbor_of_neighbor] = 0
             else:
                 score[neighbor_of_neighbor] = 2 * degrees[neighbor_of_neighbor] ** 2 + 4 * codeg_sum[neighbor_of_neighbor] ** 2
 
-    count_common_neighbors(G, common_neighbors)
     return score
-
-# /***********************************************************************/
-# / Algoritmo Conta-Vizinhos
-# /***********************************************************************/
-def count_common_neighbors(G, common_neighbors):
-    nodes = list(G.nodes())
-    index_to_node = {i: node for i, node in enumerate(nodes)}
-    
-    # Crie a matriz de adjacência esparsa
-    adj = nx.to_scipy_sparse_array(G)
-    
-    # Calcule o produto da matriz de adjacência com ela mesma
-    common_matrix = adj @ adj
-    
-    # Extraia os índices e valores não zero diretamente da matriz CSR
-    rows, cols = common_matrix.nonzero()
-    values = common_matrix.data
-    
-    # Mapeie a matriz para o dicionário de vizinhos em comum
-    for i, j, value in zip(rows, cols, values):
-        if i != j and value > 0:
-            node_i, node_j = index_to_node[i], index_to_node[j]
-            common_neighbors[(node_i, node_j)] = value
 
 # /***********************************************************************/
 # / Algoritmo Walk4-Aprimorado
@@ -189,9 +165,6 @@ def Walk4_enhanced(G, k):
     score = {node: 0 for node in G.nodes()}
     degrees = dict(G.degree())
     codeg_sum = {node: 0 for node in G.nodes()}
-    common_neighbors = defaultdict(int)
-
-    count_common_neighbors(G, common_neighbors)
 
     G_local = G.copy()
     score = compute_score_enhanced(G_local, degrees, codeg_sum, score)
@@ -204,7 +177,7 @@ def Walk4_enhanced(G, k):
         S.add(max_score_node)
 
         # Atualiza os escores com base no nodo selecionado
-        score = update_score_enhanced(G_local, max_score_node, degrees, codeg_sum, score, common_neighbors)
+        score = update_score_enhanced(G_local, max_score_node, degrees, codeg_sum, score)
 
     end_time = time.perf_counter()
     exec_time = end_time - start_time
