@@ -377,7 +377,7 @@ def nb_centrality(graph, normalized=True, return_eigenvalue=False, tol=0):
 
     # The centrality is given by the first entries of the principal left
     # eigenvector of the auxiliary NB-matrix
-    val, vec = scipy.sparse.linalg.eigs(nb_matrix(graph, aux=True).T, k=1, tol=tol)
+    val, vec = scipy.sparse.linalg.eigs(nb_matrix(graph, aux=True).T, k=1, tol=tol, maxiter=1000000)
     val = val[0].real
     vec = vec[:graph.order()].ravel()
 
@@ -450,7 +450,6 @@ def x_nb_centrality(graph, approx=True, return_eigenvalue=False, tol=0):
         # Get the correctly normalized NB-centralities
         nb_cent, val = nb_centrality(
             graph, return_eigenvalue=True, normalized=True, tol=tol)
-
         # Aggregate each node's neighbor's NB-centralities
         nb_cent = np.array([nb_cent[n] for n in graph])
         adj = nx.to_scipy_sparse_array(graph)
@@ -471,7 +470,6 @@ def x_nb_centrality(graph, approx=True, return_eigenvalue=False, tol=0):
             left = perm_matrix(B.shape[0] // 2).dot(right)
             result = left.dot(X.dot(right)) / left.dot(right)
             xnb_cent.append(result)
-
     # This handles both consecutive integer and arbitrary labels
     result = {n: xnb_cent[i].real for i, n in enumerate(graph)}
     return (result, val) if return_eigenvalue else result
@@ -662,12 +660,17 @@ def immunize(graph, num_nodes, strategy='xdeg', queue=True, min_deg=2,
         # Remember to run the immunization on the reduced graph...
         reduced = reduced.copy()
         nodes = []
+        c = 0
         for _ in range(num_nodes):
+            print(c)
+            c += 1
+            if (c == 158):
+                print("GRAFO: ", len(reduced.nodes()))
             score = score_func(reduced)
             next_node = max(score, key=score.get)
             reduced.remove_node(next_node)
             nodes.append(next_node)
-
+            
     # Return a subgraph view containing all those nodes of small degree
     nodes_set = set(nodes)
     new_graph = graph.subgraph(n for n in reduced if n not in nodes_set)

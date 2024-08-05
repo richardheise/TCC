@@ -14,6 +14,7 @@
 
 # Imports
 from collections import defaultdict
+from math import floor, ceil
 import numpy as np
 import scipy.sparse
 import scipy.linalg
@@ -22,6 +23,10 @@ import argparse
 import itertools
 import time
 import inbox
+import csv
+import os
+
+algorithm_id = 0
 
 ##################### ALGORITMOS #########################################
 #-->
@@ -74,7 +79,8 @@ def update_score(G, node, degrees, codeg_sum, score):
 # /***********************************************************************/
 def Walk4(G, k):
 
-    print(f"Rodando Walk-4 em {len(G.nodes())} vértices e {len(G.edges)} arestas para {k} recursos...")
+    if algorithm_id != 6:
+        print(f"Rodando Walk-4 em {len(G.nodes())} vértices e {len(G.edges)} arestas para {k} recursos...")
     start_time = time.perf_counter()
 
     S = set()
@@ -98,7 +104,11 @@ def Walk4(G, k):
     end_time = time.perf_counter()
     exec_time = end_time - start_time
     minutes, seconds = divmod(exec_time, 60)
-    print(f"Rodou em {int(minutes)}:{seconds:02} minuto(s).")
+
+    if algorithm_id != 6:
+        print(f"Rodou em {int(minutes)}:{seconds:02} minuto(s).")
+    else:
+        print("time: ", seconds)
 
     return S, eigendrop(G, S)
 
@@ -158,7 +168,8 @@ def update_score_enhanced(G, node, degrees, codeg_sum, score):
 # /***********************************************************************/
 def Walk4_enhanced(G, k):
 
-    print("Rodando Walk-4 Aprimorado...")
+    if algorithm_id != 6:
+        print("Rodando Walk-4 Aprimorado...")
     start_time = time.perf_counter()
 
     S = set()
@@ -182,7 +193,11 @@ def Walk4_enhanced(G, k):
     end_time = time.perf_counter()
     exec_time = end_time - start_time
     minutes, seconds = divmod(exec_time, 60)
-    print(f"Rodou em {int(minutes)}:{seconds:02} minuto(s).")
+
+    if algorithm_id != 6:
+        print(f"Rodou em {int(minutes)}:{seconds:02} minuto(s).")
+    else:
+        print("time: ", seconds)
 
     return S, eigendrop(G, S)
 
@@ -228,7 +243,8 @@ def net_shield(A, k):
 # /***********************************************************************/
 def netshield_plus(G, k, b):
 
-    print(f"Rodando Netshield+ em {len(G.nodes())} vértices e {len(G.edges)} arestas para {k} recursos...")
+    if algorithm_id != 6:
+        print(f"Rodando Netshield+ em {len(G.nodes())} vértices e {len(G.edges)} arestas para {k} recursos...")
     start_time = time.perf_counter()
 
     A = nx.adjacency_matrix(G).toarray()
@@ -252,7 +268,11 @@ def netshield_plus(G, k, b):
     end_time = time.perf_counter()
     exec_time = end_time - start_time
     minutes, seconds = divmod(exec_time, 60)
-    print(f"Rodou em {int(minutes)}:{seconds:02} minuto(s).")
+
+    if algorithm_id != 6:
+        print(f"Rodou em {int(minutes)}:{seconds:02} minuto(s).")
+    else:
+        print("time: ", seconds)
     
     return immunized, eigendrop(G, immunized)
 
@@ -315,8 +335,8 @@ def select_algorithm(G, id):
 
     if (k >= len(G.nodes())-1):
         print("Temos mais recursos que nodos, logo, imunize todo mundo!")
-        return set(G.nodes()), max(nx.adjacency_spectrum(G))
-    
+        exit(0)
+            
     to_immunize = ()
     eigendrop_final = 0
     
@@ -336,7 +356,7 @@ def select_algorithm(G, id):
             to_immunize, eigendrop_final = Walk4_enhanced(G, k)
 
         case 5:
-            print(f"Rodando NB-Centrality em {len(G.nodes())} vértices e {len(G.edges)} arestas para {k} recursos...")
+            print(f"Rodando XNB-Centrality em {len(G.nodes())} vértices e {len(G.edges)} arestas para {k} recursos...")
             start_time = time.perf_counter()
 
             to_immunize, _ = inbox.immunize(G, k, strategy='xnb')
@@ -362,6 +382,68 @@ def read_dot_file(file_path):
 
     return nx.Graph(G)
 
+# /***********************************************************************/
+# / Gera os resultados dos testes
+# /***********************************************************************/
+def results(G, input_file_name):
+
+    k = ceil(len(G.nodes()) / 4)
+    ks = [floor(k / 5), floor(k / 4), floor(k / 3), floor(k / 2), k]
+
+    # Remove duplicatas e zeros
+    ks = sorted(list(set(filter(lambda x: x != 0, ks))))
+
+    # Define o nome do arquivo CSV baseado no nome do arquivo de entrada
+    output_file_name = f'results_{os.path.splitext(input_file_name)[0]}.csv'
+
+    # Abre o arquivo CSV para escrita
+    with open(output_file_name, mode='w', newline='') as file:
+        writer = csv.writer(file)
+        # Escreve o cabeçalho
+        writer.writerow(['algoritmo', 'k', 'time', 'eigendrop'])
+
+        for k in ks:
+            print("k:", k)
+            
+            # Netshield
+            b = ceil(k / 10)
+
+            if b > 100:
+                b = 100
+            start_time = time.perf_counter()
+            to_immunize, eigendrop_final = netshield_plus(G, k, b)
+            end_time = time.perf_counter()
+            exec_time = end_time - start_time
+            print(f"netshield - k: {k}, time: {exec_time}, eigendrop: {eigendrop_final.real}")
+            writer.writerow(['netshield', k, exec_time, round(eigendrop_final.real, 8)])
+
+            # Walk4
+            start_time = time.perf_counter()
+            to_immunize, eigendrop_final = Walk4(G, k)
+            end_time = time.perf_counter()
+            exec_time = end_time - start_time
+            print(f"walk4 - k: {k}, time: {exec_time}, eigendrop: {eigendrop_final.real}")
+            writer.writerow(['walk4', k, exec_time, round(eigendrop_final.real, 8)])
+
+            # Walk4 Aprimorado
+            start_time = time.perf_counter()
+            to_immunize, eigendrop_final = Walk4_enhanced(G, k)
+            end_time = time.perf_counter()
+            exec_time = end_time - start_time
+            print(f"walk4-aprimorado - k: {k}, time: {exec_time}, eigendrop: {eigendrop_final.real}")
+            writer.writerow(['walk4-aprimorado', k, exec_time, round(eigendrop_final.real, 8)])
+
+            # XNB
+            start_time = time.perf_counter()
+            to_immunize, _ = inbox.immunize(G, k, strategy='xnb')
+            end_time = time.perf_counter()
+            exec_time = end_time - start_time
+            eigendrop_final = eigendrop(G, to_immunize)
+            print(f"xnb - k: {k}, time: {exec_time}, eigendrop: {eigendrop_final.real}")
+            writer.writerow(['xnb', k, exec_time, round(eigendrop_final.real, 8)])
+
+            print("\n")
+
 #<--
 
 ##################### MAIN #########################################
@@ -370,32 +452,48 @@ if __name__ == "__main__":
 
     # Parsing de argumentos da entrada padrão
     parser = argparse.ArgumentParser(description="Imunizador de Nodos de um grafo")
-    parser.add_argument("file_path", type=str, help="Caminho do arquivo .dot")
+    parser.add_argument("file_path", type=str, help="Caminho do arquivo .dot ou pasta (-t)")
+    parser.add_argument("-t", action="store_true", help="Executar testes em todos os arquivos na pasta")
     args = parser.parse_args()
 
-    # Chamada do algoritmo
-    G = read_dot_file(args.file_path)
+    if args.t:
+        # Se o argumento -t foi fornecido, processar todos os arquivos .dot na pasta
+        folder_path = args.file_path
+        for filename in os.listdir(folder_path):
+            if filename.endswith(".dot"):
+                file_path = os.path.join(folder_path, filename)
+                print(f"Processando arquivo: {file_path}")
+                G = read_dot_file(file_path)
+                results(G, filename)
+    else:
+        # Chamada do algoritmo
+        G = read_dot_file(args.file_path)
 
-    algorithm_id = int(input("""
+        algorithm_id = int(input("""
 Escolha qual algoritmo deseja usar:
 1 --> BruteForce
 2 --> Netshield+
 3 --> Walk-4
 4 --> Walk-4-Enhanced
-5 --> NB-Centrality
+5 --> XNB-Centrality
+6 --> Testes (b = k/10)
 """))
 
-    immunized, max_eigendrop = select_algorithm(G, algorithm_id)
+        if (algorithm_id == 6):
+            results(G)
+            exit(0)
 
-    max_eigendrop = round(max_eigendrop.real, 8)
+        immunized, max_eigendrop = select_algorithm(G, algorithm_id)
 
-    G_final = G.copy()
-    G_final.remove_nodes_from(immunized)
+        max_eigendrop = round(max_eigendrop.real, 8)
 
-    # Retorno da resposta
-    print("Nodos a serem imunizados:", list(immunized))
-    print(f"Maior autovalor inicial: {round(max(nx.adjacency_spectrum(G)).real, 8):.8f}")
-    print(f"Maior autovalor final: {round(max(nx.adjacency_spectrum(G_final)).real, 8):.8f}")
-    print(f"Autoqueda: {max_eigendrop:.8f}")
+        G_final = G.copy()
+        G_final.remove_nodes_from(immunized)
+
+        # Retorno da resposta
+        print("Nodos a serem imunizados:", list(immunized))
+        print(f"Maior autovalor inicial: {round(max(nx.adjacency_spectrum(G)).real, 8):.8f}")
+        print(f"Maior autovalor final: {round(max(nx.adjacency_spectrum(G_final)).real, 8):.8f}")
+        print(f"Autoqueda: {max_eigendrop:.8f}")
 
 #<--
