@@ -336,7 +336,7 @@ def select_algorithm(G, id):
     if (k >= len(G.nodes())-1):
         print("Temos mais recursos que nodos, logo, imunize todo mundo!")
         exit(0)
-            
+
     to_immunize = ()
     eigendrop_final = 0
     
@@ -411,15 +411,15 @@ def results(G, input_file_name):
             if b > 100:
                 b = 100
             start_time = time.perf_counter()
-            to_immunize, eigendrop_final = netshield_plus(G, k, b)
+            to_immunize, eigendrop_final = netshield_plus(G.copy(), k, b)
             end_time = time.perf_counter()
             exec_time = end_time - start_time
             print(f"netshield - k: {k}, time: {exec_time}, eigendrop: {eigendrop_final.real}")
             writer.writerow(['netshield', k, exec_time, round(eigendrop_final.real, 8)])
-
+        
             # Walk4
             start_time = time.perf_counter()
-            to_immunize, eigendrop_final = Walk4(G, k)
+            to_immunize, eigendrop_final = Walk4(G.copy(), k)
             end_time = time.perf_counter()
             exec_time = end_time - start_time
             print(f"walk4 - k: {k}, time: {exec_time}, eigendrop: {eigendrop_final.real}")

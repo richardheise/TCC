@@ -3,8 +3,7 @@
 #### GRR: 20191053
 #### Instituição: Universidade Federal do Paraná
 
-- [X] BruteForce (talvez otimizar de alguma forma?)
-- [X] NETSHIELD+
+- [X] BruteForce
+- [X] NETSHIELD(+)
 - [X] Walk-4
-- [ ] Walk-6
-- [X] NB
+- [X] XNB

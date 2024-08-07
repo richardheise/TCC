@@ -377,7 +377,7 @@ def nb_centrality(graph, normalized=True, return_eigenvalue=False, tol=0):
 
     # The centrality is given by the first entries of the principal left
     # eigenvector of the auxiliary NB-matrix
-    val, vec = scipy.sparse.linalg.eigs(nb_matrix(graph, aux=True).T, k=1, tol=tol, maxiter=1000000)
+    val, vec = scipy.sparse.linalg.eigs(nb_matrix(graph, aux=True).T, k=1, tol=tol, ncv=350)
     val = val[0].real
     vec = vec[:graph.order()].ravel()
 
@@ -391,7 +391,6 @@ def nb_centrality(graph, normalized=True, return_eigenvalue=False, tol=0):
     # that we scale it by \mu.
     if normalized:
         vec *= compute_mu(graph, val, vec)
-
     # Pack everything in a dict and return
     result = {graph.nodes[n]['original_label']: vec[n].real for n in graph}
     return (result, val) if return_eigenvalue else result
@@ -435,7 +434,7 @@ def x_nb_centrality(graph, approx=True, return_eigenvalue=False, tol=0):
     return_eigenvalue (bool): whether to return the largest
     non-backtracking eigenvalue as part of the result.
 
-    tol (float): the tolerance for eignevecto computation. tol=0 (default)
+    tol (float): the tolerance for eignevector computation. tol=0 (default)
     means machine precision.
 
     Returns
@@ -470,6 +469,7 @@ def x_nb_centrality(graph, approx=True, return_eigenvalue=False, tol=0):
             left = perm_matrix(B.shape[0] // 2).dot(right)
             result = left.dot(X.dot(right)) / left.dot(right)
             xnb_cent.append(result)
+
     # This handles both consecutive integer and arbitrary labels
     result = {n: xnb_cent[i].real for i, n in enumerate(graph)}
     return (result, val) if return_eigenvalue else result
@@ -660,12 +660,7 @@ def immunize(graph, num_nodes, strategy='xdeg', queue=True, min_deg=2,
         # Remember to run the immunization on the reduced graph...
         reduced = reduced.copy()
         nodes = []
-        c = 0
         for _ in range(num_nodes):
-            print(c)
-            c += 1
-            if (c == 158):
-                print("GRAFO: ", len(reduced.nodes()))
             score = score_func(reduced)
             next_node = max(score, key=score.get)
             reduced.remove_node(next_node)
