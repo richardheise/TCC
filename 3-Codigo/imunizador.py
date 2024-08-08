@@ -26,8 +26,6 @@ import inbox
 import csv
 import os
 
-algorithm_id = 0
-
 ##################### ALGORITMOS #########################################
 #-->
 
@@ -79,10 +77,6 @@ def update_score(G, node, degrees, codeg_sum, score):
 # /***********************************************************************/
 def Walk4(G, k):
 
-    if algorithm_id != 6:
-        print(f"Rodando Walk-4 em {len(G.nodes())} vértices e {len(G.edges)} arestas para {k} recursos...")
-    start_time = time.perf_counter()
-
     S = set()
     degrees = dict(G.degree())
     codeg_sum = {node: 0 for node in G.nodes()}
@@ -100,17 +94,8 @@ def Walk4(G, k):
 
         # Atualiza os escores com base no nodo selecionado
         score = update_score(G_local, max_score_node, degrees, codeg_sum, score)
-    
-    end_time = time.perf_counter()
-    exec_time = end_time - start_time
-    minutes, seconds = divmod(exec_time, 60)
 
-    if algorithm_id != 6:
-        print(f"Rodou em {int(minutes)}:{seconds:02} minuto(s).")
-    else:
-        print("time: ", seconds)
-
-    return S, eigendrop(G, S)
+    return S
 
 # /***********************************************************************/
 # / Algoritmo COMPUTE-SCORE-Aprimorado
@@ -168,10 +153,6 @@ def update_score_enhanced(G, node, degrees, codeg_sum, score):
 # /***********************************************************************/
 def Walk4_enhanced(G, k):
 
-    if algorithm_id != 6:
-        print("Rodando Walk-4 Aprimorado...")
-    start_time = time.perf_counter()
-
     S = set()
     score = {node: 0 for node in G.nodes()}
     degrees = dict(G.degree())
@@ -190,16 +171,7 @@ def Walk4_enhanced(G, k):
         # Atualiza os escores com base no nodo selecionado
         score = update_score_enhanced(G_local, max_score_node, degrees, codeg_sum, score)
 
-    end_time = time.perf_counter()
-    exec_time = end_time - start_time
-    minutes, seconds = divmod(exec_time, 60)
-
-    if algorithm_id != 6:
-        print(f"Rodou em {int(minutes)}:{seconds:02} minuto(s).")
-    else:
-        print("time: ", seconds)
-
-    return S, eigendrop(G, S)
+    return S
 
 # /***********************************************************************/
 # / Algoritmo NETSHIELD (DOI: 10.1109/TKDE.2015.2465378)
@@ -243,10 +215,6 @@ def net_shield(A, k):
 # /***********************************************************************/
 def netshield_plus(G, k, b):
 
-    if algorithm_id != 6:
-        print(f"Rodando Netshield+ em {len(G.nodes())} vértices e {len(G.edges)} arestas para {k} recursos...")
-    start_time = time.perf_counter()
-
     A = nx.adjacency_matrix(G).toarray()
     n = A.shape[0]
     t = b * k // n
@@ -264,17 +232,8 @@ def netshield_plus(G, k, b):
         S.update(S_prime)
     
     immunized = [list(G.nodes())[i] for i in S]
-
-    end_time = time.perf_counter()
-    exec_time = end_time - start_time
-    minutes, seconds = divmod(exec_time, 60)
-
-    if algorithm_id != 6:
-        print(f"Rodou em {int(minutes)}:{seconds:02} minuto(s).")
-    else:
-        print("time: ", seconds)
     
-    return immunized, eigendrop(G, immunized)
+    return immunized
 
 # /***********************************************************************/
 # / Algoritmo Força-Bruta
@@ -299,7 +258,7 @@ def brute_force(G, k):
     minutes, seconds = divmod(exec_time, 60)
     print(f"Rodou em {int(minutes)}:{seconds:02} minuto(s).")
 
-    return best_subset, best_drop
+    return best_subset
 
 #<--
 
@@ -338,25 +297,56 @@ def select_algorithm(G, id):
         exit(0)
 
     to_immunize = ()
-    eigendrop_final = 0
     
     match id:
         
         case 1:
-            to_immunize, eigendrop_final = brute_force(G, k)
+            print(f"Rodando Brute Force em {len(G.nodes())} vértices e {len(G.edges())} arestas para {k} recursos...")
+            start_time = time.perf_counter()
+
+            to_immunize = brute_force(G, k)
+
+            end_time = time.perf_counter()
+            exec_time = end_time - start_time
+            minutes, seconds = divmod(exec_time, 60)
+            print(f"Brute Force rodou em {int(minutes)}:{seconds:.2f} minuto(s).")
 
         case 2:
             b = int(input(f"Escolha o valor de b (inteiro) do NetShield+: \n"))
-            to_immunize, eigendrop_final = netshield_plus(G, k, b)
+            print(f"Rodando NetShield+ em {len(G.nodes())} vértices e {len(G.edges())} arestas para {k} recursos...")
+            start_time = time.perf_counter()
+
+            to_immunize = netshield_plus(G, k, b)
+
+            end_time = time.perf_counter()
+            exec_time = end_time - start_time
+            minutes, seconds = divmod(exec_time, 60)
+            print(f"NetShield+ rodou em {int(minutes)}:{seconds:.2f} minuto(s).")
 
         case 3:
-            to_immunize, eigendrop_final = Walk4(G, k)
+            print(f"Rodando Walk4 em {len(G.nodes())} vértices e {len(G.edges())} arestas para {k} recursos...")
+            start_time = time.perf_counter()
+
+            to_immunize = Walk4(G, k)
+
+            end_time = time.perf_counter()
+            exec_time = end_time - start_time
+            minutes, seconds = divmod(exec_time, 60)
+            print(f"Walk4 rodou em {int(minutes)}:{seconds:.2f} minuto(s).")
 
         case 4:
-            to_immunize, eigendrop_final = Walk4_enhanced(G, k)
+            print(f"Rodando Walk4 Enhanced em {len(G.nodes())} vértices e {len(G.edges())} arestas para {k} recursos......")
+            start_time = time.perf_counter()
+
+            to_immunize = Walk4_enhanced(G, k)
+
+            end_time = time.perf_counter()
+            exec_time = end_time - start_time
+            minutes, seconds = divmod(exec_time, 60)
+            print(f"Walk4 Enhanced rodou em {int(minutes)}:{seconds:.2f} minuto(s).")
 
         case 5:
-            print(f"Rodando XNB-Centrality em {len(G.nodes())} vértices e {len(G.edges)} arestas para {k} recursos...")
+            print(f"Rodando XNB-Centrality em {len(G.nodes())} vértices e {len(G.edges())} arestas para {k} recursos...")
             start_time = time.perf_counter()
 
             to_immunize, _ = inbox.immunize(G, k, strategy='xnb')
@@ -364,14 +354,13 @@ def select_algorithm(G, id):
             end_time = time.perf_counter()
             exec_time = end_time - start_time
             minutes, seconds = divmod(exec_time, 60)
-            print(f"Rodou em {int(minutes)}:{seconds:02} minuto(s).")
-
-            eigendrop_final = eigendrop(G, to_immunize)
+            print(f"XNB-Centrality rodou em {int(minutes)}:{seconds:.2f} minuto(s).")
 
         case _:
             print("Valor inválido")
 
-    return to_immunize, eigendrop_final
+    return to_immunize, eigendrop(G, to_immunize)
+
 
 # /***********************************************************************/
 # / Lê o .dot
@@ -411,25 +400,28 @@ def results(G, input_file_name):
             if b > 100:
                 b = 100
             start_time = time.perf_counter()
-            to_immunize, eigendrop_final = netshield_plus(G.copy(), k, b)
+            to_immunize = netshield_plus(G, k, b)
             end_time = time.perf_counter()
             exec_time = end_time - start_time
+            eigendrop_final = eigendrop(G, to_immunize)
             print(f"netshield - k: {k}, time: {exec_time}, eigendrop: {eigendrop_final.real}")
             writer.writerow(['netshield', k, exec_time, round(eigendrop_final.real, 8)])
         
             # Walk4
             start_time = time.perf_counter()
-            to_immunize, eigendrop_final = Walk4(G.copy(), k)
+            to_immunize = Walk4(G, k)
             end_time = time.perf_counter()
             exec_time = end_time - start_time
+            eigendrop_final = eigendrop(G, to_immunize)
             print(f"walk4 - k: {k}, time: {exec_time}, eigendrop: {eigendrop_final.real}")
             writer.writerow(['walk4', k, exec_time, round(eigendrop_final.real, 8)])
 
             # Walk4 Aprimorado
             start_time = time.perf_counter()
-            to_immunize, eigendrop_final = Walk4_enhanced(G, k)
+            to_immunize = Walk4_enhanced(G, k)
             end_time = time.perf_counter()
             exec_time = end_time - start_time
+            eigendrop_final = eigendrop(G, to_immunize)
             print(f"walk4-aprimorado - k: {k}, time: {exec_time}, eigendrop: {eigendrop_final.real}")
             writer.writerow(['walk4-aprimorado', k, exec_time, round(eigendrop_final.real, 8)])
 

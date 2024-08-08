@@ -3,3 +3,5 @@ scipy
 pqdict
 numpy
 pydot
+pandas
+matplotlib
